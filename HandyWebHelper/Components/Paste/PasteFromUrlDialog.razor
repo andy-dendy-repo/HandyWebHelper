@@ -1,0 +1,115 @@
+﻿@using System.Net.Http
+@using System.Text
+@implements IDialogContentComponent
+
+<div class="paste-from-url">
+    <FluentTextField Placeholder="Enter URL..." @bind-Value="@fileUrl" />
+    <FluentButton @onclick="DownloadData" Appearance="Appearance.Accent">
+        Download from URL
+    </FluentButton>
+
+    <FluentProgress Min="0" Max="100" Visible="@(progressPercent > 0)" Value="@progressPercent" />
+    <FluentLabel Alignment="HorizontalAlignment.Center">
+        @progressTitle
+    </FluentLabel>
+</div>
+
+
+@if (!string.IsNullOrEmpty(downloadedContent))
+{
+    <h4>Downloaded Content:</h4>
+    <pre>@downloadedContent</pre>
+}
+
+@code {
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+
+    private string fileUrl = string.Empty;
+    private int? progressPercent;
+    private string? progressTitle;
+    private string? downloadedContent = string.Empty;
+
+    private async Task DownloadData()
+    {
+        if (string.IsNullOrWhiteSpace(fileUrl))
+        {
+            progressTitle = "Please enter a valid URL.";
+            return;
+        }
+
+        await Task.Run(async () =>
+        {
+            try
+            {
+                progressPercent = 0;
+                progressTitle = "Starting download...";
+
+                // Initialize HttpClient
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(30);  // Set timeout if needed
+
+                // Start the request with response headers read mode
+                var response = await httpClient.GetAsync(fileUrl, HttpCompletionOption.ResponseHeadersRead);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    // Get the content length if available
+                    var contentLength = response.Content.Headers.ContentLength;
+
+                    // Read response stream
+                    using var contentStream = await response.Content.ReadAsStreamAsync();
+                    using var memoryStream = new MemoryStream();
+
+                    // Buffer to read data
+                    var buffer = new byte[8192];
+                    long totalBytesRead = 0;
+                    int bytesRead;
+
+                    while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        // Write to memory stream
+                        await memoryStream.WriteAsync(buffer, 0, bytesRead);
+                        totalBytesRead += bytesRead;
+
+                        // Calculate progress
+                        if (contentLength.HasValue)
+                        {
+                            progressPercent = (int)((totalBytesRead * 100L) / contentLength.Value);
+                            progressTitle = $"Downloading... {progressPercent}% ({totalBytesRead / 1024} KB / {contentLength.Value / 1024} KB)";
+                        }
+                        else
+                        {
+                            progressTitle = $"Downloading... {totalBytesRead / 1024} KB";
+                        }
+
+                        // Trigger UI update
+                        StateHasChanged();
+                    }
+
+                    // Get the downloaded data as a string
+                    memoryStream.Seek(0, SeekOrigin.Begin);
+                    using var reader = new StreamReader(memoryStream, Encoding.UTF8);
+                    downloadedContent = await reader.ReadToEndAsync();
+
+                    progressTitle = "Download complete.";
+
+                    // Close the dialog passing the downloaded content
+                    await Dialog!.CloseAsync(downloadedContent);
+                }
+                else
+                {
+                    progressTitle = $"Error: {response.ReasonPhrase}";
+                }
+            }
+            catch (Exception ex)
+            {
+                progressTitle = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                progressPercent = 100; // Set progress to 100% once done
+            }
+        });
+    }
+}

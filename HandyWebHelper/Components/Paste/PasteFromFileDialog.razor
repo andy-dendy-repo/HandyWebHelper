@@ -1,0 +1,71 @@
+﻿@using System.Text
+@implements IDialogContentComponent
+
+
+<FluentInputFile @ref="@myFileUploader"
+                 DragDropZoneVisible="true"
+                 Mode="InputFileMode.Buffer"
+                 Multiple="false"
+                 AnchorId="FileUploadButton"
+                 OnProgressChange="@(e =>
+                     {
+                         progressPercent = e.ProgressPercent;
+                         progressTitle = e.ProgressTitle;
+                     })"
+                 OnCompleted="@OnCompleted" />
+
+<FluentProgress Min="0" Max="100" Visible="@(progressPercent > 0)" Value="@progressPercent" />
+<FluentLabel Alignment="HorizontalAlignment.Center">
+    @progressTitle
+</FluentLabel>
+
+<FluentButton Id="FileUploadButton" Appearance="Appearance.Accent">
+    Upload file
+</FluentButton>
+
+@if (Files.Any())
+{
+    <h4>File(s) uploaded:</h4>
+    <ul>
+        @foreach (var file in Files)
+        {
+            <li>
+                <b>@file.Name</b> 🔹
+                @($"{Decimal.Divide(file.Size, 1024):N} KB") 🔹
+                @file.ContentType 🔹
+                @file.LocalFile?.FullName
+                @file.ErrorMessage
+            </li>
+        }
+    </ul>
+}
+
+@code
+{
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+
+    FluentInputFile? myFileUploader = default!;
+    int? progressPercent;
+    string? progressTitle;
+    bool ready = false;
+
+    FluentInputFileEventArgs[] Files = Array.Empty<FluentInputFileEventArgs>();
+
+    async Task OnCompleted(IEnumerable<FluentInputFileEventArgs> files)
+    {
+        Files = files.ToArray();
+        progressPercent = myFileUploader!.ProgressPercent;
+        progressTitle = myFileUploader!.ProgressTitle;
+        ready = true;
+
+        var file = files.FirstOrDefault();
+
+        if(file is not null)
+        {
+            var text = Encoding.UTF8.GetString(file.Buffer.Data);
+
+            await Dialog.CloseAsync(text);
+        }
+    }
+}

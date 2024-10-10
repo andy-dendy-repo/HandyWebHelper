@@ -1,0 +1,108 @@
+﻿@using HandyWebHelper.Interfaces
+@using HandyWebHelper.Models
+@using HandyWebHelper.Utility
+@using HandyWebHelper.Utility.Enums
+@implements IDisposable
+@inject SettingsContainer Settings
+@inject IDialogService DialogService
+
+
+@foreach (var operationGroup in Settings.Operations.Where(x => x.Key != OperationType.Paste))
+{
+    <FluentToolbar Class="toolbar-custom">
+        <span slot="label" class="toolbar-span">@Enum.GetName(operationGroup.Key)</span>
+
+        @foreach (var operation in operationGroup.Value)
+        {
+            @if (OperationMappings.TryGetValue(operation, out var operationItem))
+            {
+                <FluentButton 
+                    Appearance="Appearance.Lightweight" 
+                    IconStart="@(operationItem.Icon)" 
+                    OnClick="@(()=>operationItem.Action.Invoke(operation))"
+                >
+                    @operationItem.Text
+                </FluentButton>
+            }
+        }
+    </FluentToolbar>
+}
+
+
+@code
+{
+    [Parameter]
+    public EventCallback<string> OnClick { get; set; }
+
+    [Parameter]
+    public string Text { get; set; }
+
+    private record OperationMapping(Icon Icon, string Text, Func<Operation, Task> Action);
+
+    private IDictionary<Operation, OperationMapping> OperationMappings
+    {
+        get => new Dictionary<Operation, OperationMapping>()
+        {
+            { Operation.EncodeURL, new OperationMapping(new Icons.Regular.Size20.WebAsset(), "URL", PerformOperation) }
+            , { Operation.EncodeBase64, new OperationMapping(new Icons.Regular.Size20.TextWholeWord(), "Base64", PerformOperation) }
+            , { Operation.EncodeHTML, new OperationMapping(new Icons.Regular.Size20.DocumentChevronDouble(), "HTML", PerformOperation) }
+
+            , { Operation.DecodeURL, new OperationMapping(new Icons.Regular.Size20.WebAsset(), "URL", PerformOperation) }
+            , { Operation.DecodeBase64, new OperationMapping(new Icons.Regular.Size20.TextWholeWord(), "Base64", PerformOperation) }
+            , { Operation.DecodeHTML, new OperationMapping(new Icons.Regular.Size20.DocumentChevronDouble(), "HTML", PerformOperation) }
+
+            , { Operation.FormarCss, new OperationMapping(new Icons.Regular.Size20.DocumentChevronDouble(), "Css", PerformOperation) }
+            , { Operation.FormatHTML, new OperationMapping(new Icons.Regular.Size20.DocumentChevronDouble(), "HTML", PerformOperation) }
+            , { Operation.FormatJSON, new OperationMapping(new Icons.Regular.Size20.WebAsset(), "JSON", PerformOperation) }
+            , { Operation.FormatXML, new OperationMapping(new Icons.Regular.Size20.TextWholeWord(), "XML", PerformOperation) }
+
+            , { Operation.MinifyCss, new OperationMapping(new Icons.Regular.Size20.DocumentChevronDouble(), "Css", PerformOperation) }
+            , { Operation.MinifyHTML, new OperationMapping(new Icons.Regular.Size20.DocumentChevronDouble(), "HTML", PerformOperation) }
+            , { Operation.MinifyJSON, new OperationMapping(new Icons.Regular.Size20.WebAsset(), "JSON", PerformOperation) }
+            , { Operation.MinifyXML, new OperationMapping(new Icons.Regular.Size20.TextWholeWord(), "XML", PerformOperation) }
+        };
+    }
+
+    private async Task PerformOperation(Operation operation)
+    {
+        try
+        {
+            var text = operation switch
+            {
+                Operation.EncodeURL => Encoder.UrlEncode(Text),
+                Operation.EncodeBase64 => Encoder.Base64Encode(Text),
+                Operation.EncodeHTML => Encoder.HtmlEncode(Text),
+
+                Operation.DecodeBase64 => Decoder.Base64Decode(Text),
+                Operation.DecodeHTML => Decoder.HtmlDecode(Text),
+                Operation.DecodeURL => Decoder.UrlDecode(Text),
+
+                Operation.FormarCss => Formatter.FormatCss(Text),
+                Operation.FormatHTML => Formatter.FormatHtml(Text),
+                Operation.FormatJSON => Formatter.FormatJson(Text),
+                Operation.FormatXML => Formatter.FormatXml(Text),
+
+                Operation.MinifyXML => Minifier.MinifyXml(Text),
+                Operation.MinifyJSON => Minifier.MinifyJson(Text),
+                Operation.MinifyHTML => Minifier.MinifyHtml(Text),
+                Operation.MinifyCss => Minifier.MinifyCss(Text),
+            };
+
+            await OnClick.InvokeAsync(text);
+        }
+        catch(Exception ex)
+        {
+            await DialogService.ShowErrorAsync(ex.Message);
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Settings.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Settings.OnChange -= StateHasChanged;
+    }
+}

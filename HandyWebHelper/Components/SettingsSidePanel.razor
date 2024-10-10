@@ -1,0 +1,83 @@
+﻿@using HandyWebHelper.Models
+@using HandyWebHelper.Utility.Enums
+@implements IDialogContentComponent
+@inject SettingsContainer Settings
+
+<FluentDialogBody>
+    <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: end;padding-right: 2em;">
+        @foreach (var operationGroup in Settings.Default)
+        {
+
+            <FluentDivider Style="width: 100%"></FluentDivider>
+            <FluentSwitch Value=@(Settings.Operations.ContainsKey(operationGroup.Key))
+                          Label=@(Enum.GetName(operationGroup.Key)) ValueChanged="@((v)=>ToggleGroup(v, operationGroup.Key))" />
+
+            <FluentDivider Style="width: 100%"></FluentDivider>
+
+            @if (Settings.Operations.ContainsKey(operationGroup.Key))
+                @foreach (var operation in operationGroup.Value)
+                {
+                    <FluentSwitch Value=@(Settings.Operations[operationGroup.Key].Contains(operation))
+                                  Label=@(Enum.GetName(operation)) ValueChanged="@((v)=>ToggleOperation(v, operationGroup.Key, operation))" />
+                }
+
+        }
+    </div>
+</FluentDialogBody>
+
+@code {
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+
+    void ToggleGroup(bool value, OperationType operationType)
+    {
+        if (value && !Settings.Operations.ContainsKey(operationType))
+        {
+            Settings.Operations.Add(operationType, new HashSet<Operation>());
+
+            Settings.Operations = Settings.Operations;
+
+            return;
+        }
+
+        if (!value && Settings.Operations.ContainsKey(operationType))
+        {
+            Settings.Operations.Remove(operationType);
+
+            Settings.Operations = Settings.Operations;
+
+            return;
+        }
+    }
+
+    void ToggleOperation(bool value, OperationType operationType, Operation operation)
+    {
+        if (value && !Settings.Operations[operationType].Contains(operation))
+        {
+            Settings.Operations[operationType].Add(operation);
+
+            Settings.Operations = Settings.Operations;
+
+            return;
+        }
+
+        if (!value && Settings.Operations[operationType].Contains(operation))
+        {
+            Settings.Operations[operationType].Remove(operation);
+
+            Settings.Operations = Settings.Operations;
+
+            return;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Settings.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Settings.OnChange -= StateHasChanged;
+    }
+}

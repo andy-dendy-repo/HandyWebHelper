@@ -1,0 +1,47 @@
+﻿@page "/"
+@using HandyWebHelper.Components.Paste
+@using HandyWebHelper.Components
+
+<PageTitle>Home</PageTitle>
+
+<FluentGrid Spacing="3" AdaptiveRendering="true" Justify="JustifyContent.Center">
+    <FluentGridItem xs="12">
+        <div class="toolbar-wrapper">
+            <PasteSection OnPaste="OnInputChanged" />
+            <OperationSection Text=@inputText OnClick="OnOutputChanged" />
+        </div>
+    </FluentGridItem>
+    <FluentGridItem xs="12" sm="6">
+        <FluentBadge Appearance="Appearance.Accent" style="margin-bottom: 0.5em">
+            Input
+        </FluentBadge>
+        <FluentTextArea @bind-Value="@inputText" Rows="15" style="width: 100%;" Resize="TextAreaResize.Vertical"></FluentTextArea>
+    </FluentGridItem>
+    <FluentGridItem xs="12" sm="6">
+        <FluentBadge Appearance="Appearance.Accent" style="margin-bottom: 0.5em">
+            Output
+        </FluentBadge>
+        <FluentTextArea @bind-Value="@outputText" Rows="15" style="width: 100%;" Resize="TextAreaResize.Vertical"></FluentTextArea>
+    </FluentGridItem>
+</FluentGrid>
+
+@code
+{
+    string inputText = string.Empty;
+
+    string outputText = string.Empty;
+
+    public void OnInputChanged(string text)
+    {
+        inputText = text;
+
+        StateHasChanged();
+    }
+
+    public void OnOutputChanged(string text)
+    {
+        outputText = text;
+
+        StateHasChanged();
+    }
+}

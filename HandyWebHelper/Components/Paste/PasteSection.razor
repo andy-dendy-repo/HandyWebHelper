@@ -1,0 +1,100 @@
+﻿@using HandyWebHelper.Interfaces
+@using HandyWebHelper.Models
+@using HandyWebHelper.Utility.Enums
+@implements IDisposable
+@inject SettingsContainer Settings
+@inject IClipboardService ClipboardService
+@inject IDialogService DialogService
+
+@if(Settings.Operations.TryGetValue(OperationType.Paste, out var operations))
+{
+    <FluentToolbar Class="toolbar-custom">
+        <span slot="label" class="toolbar-span">Paste from</span>
+        @foreach (var operation in operations)
+        {
+            if (OperationMappings.TryGetValue(operation, out var operationItem))
+            {
+                <FluentButton Appearance="Appearance.Lightweight" IconStart="@(operationItem.Icon)" OnClick="@(()=>operationItem.Action.Invoke())">
+                    @operationItem.Text
+                </FluentButton>
+            }
+        }
+    </FluentToolbar>
+}
+
+@code 
+{
+    [Parameter]
+    public EventCallback<string> OnPaste { get; set; }
+
+    private record OperationMapping(Icon Icon, string Text, Func<Task> Action);
+
+    private IDictionary<Operation, OperationMapping> OperationMappings
+    {
+        get => new Dictionary<Operation, OperationMapping>()
+        {
+            { Operation.PasteClipboard, new OperationMapping(new Icons.Regular.Size20.ClipboardArrowRight(), "Clipboard", PasteFromClipBoard) }
+            , { Operation.PasteLocalFile, new OperationMapping(new Icons.Regular.Size20.ArrowUpload(), "Local file", PasteFromLocalFile) }
+            , { Operation.PasteUrlLink, new OperationMapping(new Icons.Regular.Size20.ClipboardLink(), "Url link", PasteFromUrl) }
+        };
+    }
+
+    private async Task PasteFromClipBoard()
+    {
+        var text = await ClipboardService.CopyFromClipboard();
+
+        await OnPaste.InvokeAsync(text);
+    }
+
+    private async Task PasteFromLocalFile()
+    {
+        DialogParameters parameters = new()
+            {
+                Title = $"Choose a local file",
+                PrimaryActionEnabled = false,
+                SecondaryActionEnabled = false,
+                Width = "500px",
+                Modal = true,
+                PreventScroll = true
+            };
+
+        IDialogReference dialog = await DialogService.ShowDialogAsync<PasteFromFileDialog>(parameters);
+
+        DialogResult? result = await dialog.Result;
+
+        var text = result.Data as string;
+
+        await OnPaste.InvokeAsync(text);
+    }
+
+    private async Task PasteFromUrl()
+    {
+        DialogParameters parameters = new()
+            {
+                Title = $"Enter url link",
+                PrimaryActionEnabled = false,
+                SecondaryActionEnabled = false,
+                Width = "500px",
+                Modal = true,
+                PreventScroll = true
+            };
+
+        IDialogReference dialog = await DialogService.ShowDialogAsync<PasteFromUrlDialog>(parameters);
+
+        DialogResult? result = await dialog.Result;
+
+        var text = result.Data as string;
+
+        await OnPaste.InvokeAsync(text);
+    }
+
+    protected override void OnInitialized()
+    {
+        Settings.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Settings.OnChange -= StateHasChanged;
+    }
+}
